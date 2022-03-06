@@ -1,6 +1,6 @@
 composer.phar
 /vendor
-.DS_Store
 Thumbs.db
 /.idea
 /.vscode
+.DS_Store
