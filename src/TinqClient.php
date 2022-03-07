@@ -24,12 +24,8 @@ class TinqClient
     public function factory()
     {
         $headers = ['Content-Type: application/json', 'Authorization: Bearer ' . $this->apiKey];
-        $creds = [
-            'api_key' => $this->apiKey,
-            'username' => $this->username
-        ];
 
-        $client = new Api(self::$apiBase, $headers, $creds);
+        $client = new Api(self::$apiBase, $headers);
         return $client;
     }
     
@@ -121,7 +117,7 @@ class Api
     /**
      * @param array<int,string> $headers
      */
-    public function __construct(string $url, array $headers = [], $creds)
+    public function __construct(string $url, array $headers = [])
     {
         $curlClient = curl_init();
         curl_setopt_array($curlClient, [
@@ -131,7 +127,6 @@ class Api
         ]);
         $this->client = $curlClient;
         $this->url = $url;
-        $this->creds = $creds;
         return $this;
     }
 
@@ -145,7 +140,7 @@ class Api
      */
     public function post(string $url, array $params)
     {
-        $params = array_merge($params, $this->creds);
+        $params = array_merge($params);
         
         curl_setopt($this->client, CURLOPT_URL, $this->getUrl($url));
         curl_setopt($this->client, CURLOPT_POST, true);
