@@ -104,6 +104,18 @@ class TinqClient
         return $this->factory()->post('/check-plagiarism', $params);
     }
 
+
+    /**
+     * Entity recognition wrapper for the Tinq.ai API.
+     * @param array<string,mixed> $params
+     * @link https://developers.tinq.ai/reference/entity-recognition
+     */
+    public function ner(string $text, array $params = [])
+    {
+        $params['text'] = $text;
+        return $this->factory()->post('/ner', $params);
+    }
+
 }
 
 
