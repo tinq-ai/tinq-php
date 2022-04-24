@@ -3,6 +3,7 @@
     "description": "A PHP Wrapper for the Tinq.ai API - Ready-to-use Natural language processing toolkit",
     "type": "library",
     "license": "MIT",
+    "minimum-stability": "stable",
     "autoload": {
         "psr-4": {
             "Tinq\\": "src/"
