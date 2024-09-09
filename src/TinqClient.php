@@ -1,44 +1,39 @@
 <?php
 
+/**
+ * Client for interacting with the Tinq.ai API.
+ */
+
 namespace Tinq;
 
+/**
+ *
+ */
 class TinqClient
 {
     /** @var string */
-    private $apiKey;
+    private string $apiKey;
 
     /** @var string */
-    private $username;
+    protected static $apiBase = 'https://tinq.ai/api/v2';
 
-    /** @var string */
-    protected static $apiBase = 'https://tinq.ai/api/v1';
-
-    public function __construct(?string $apiKey, ?string $username = null)
+    public function __construct(?string $apiKey = null)
     {
-        $this->apiKey = $apiKey ? $apiKey : (string)getenv('TINQ_API_KEY');
-        $this->username = $username ? $username : (string)getenv('TINQ_USERNAME');
+        $this->apiKey = $apiKey ?: (string)getenv('TINQ_API_KEY');
+    }
 
-        $headers = ['Content-Type: application/json', 'Authorization: Bearer ' . $this->apiKey];
+    private function getHeaders()
+    {
+        return [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $this->apiKey
+        ];
     }
 
     public function factory()
     {
-        $headers = ['Content-Type: application/json', 'Authorization: Bearer ' . $this->apiKey];
-
-        $client = new Api(self::$apiBase, $headers);
+        $client = new Api(self::$apiBase, $this->getHeaders());
         return $client;
-    }
-    
-
-    /**
-     * Rewriter wrapper for the Tinq.ai API.
-     * @param array<string,mixed> $params
-     * @link https://developers.tinq.ai/reference/rewriter
-     */
-    public function rewrite(string $text, array $params = [])
-    {
-        $params['text'] = $text;
-        return $this->factory()->post('/rewrite', $params);
     }
 
 
@@ -49,10 +44,17 @@ class TinqClient
      */
     public function summarize(string $text, array $params = [])
     {
+        $language = $params['lang'] ?? 'english';
+        $tone = $params['tone'] ?? 'neutral';
+        $tool = 'summarizer';
+        $number = 1;
         $params['text'] = $text;
-        return $this->factory()->post('/summarize', $params);
+        $params['format'] = $params['format'] ?? 'paragraphs';
+        $params['number'] = $params['number'] ?? '4';
+        $details = $params['details'] ?? '';
+        return $this->assistant($language, $tone, $tool, $number, $details, $params);
     }
-    
+
 
     /**
      * Classifier wrapper for the Tinq.ai API.
@@ -67,7 +69,6 @@ class TinqClient
     }
 
 
-
     /**
      * Article extractor wrapper for the Tinq.ai API.
      * @param array<string,mixed> $params
@@ -77,19 +78,6 @@ class TinqClient
     {
         $params['extract_url'] = $url;
         return $this->factory()->post('/extract-article', $params);
-    }
-
-        
-
-    /**
-     * Sentiment analysis wrapper for the Tinq.ai API.
-     * @param array<string,mixed> $params
-     * @link https://developers.tinq.ai/reference/sentiment-analysis
-     */
-    public function sentiments(string $text, array $params = [])
-    {
-        $params['text'] = $text;
-        return $this->factory()->post('/sentiment-analysis', $params);
     }
 
 
@@ -106,40 +94,60 @@ class TinqClient
 
 
     /**
-     * Entity recognition wrapper for the Tinq.ai API.
+     * Assistant wrapper for the Tinq.ai API.
      * @param array<string,mixed> $params
-     * @link https://developers.tinq.ai/reference/entity-recognition
+     * @link https://developers.tinq.ai/reference/assistant
      */
-    public function ner(string $text, array $params = [])
+    public function assistant(string $language, string $tone, string $tool, int $number, string $details, array $params = [])
     {
-        $params['text'] = $text;
-        return $this->factory()->post('/ner', $params);
+        $params['lang'] = $language;
+        $params['tone'] = $tone;
+        $params['tool'] = $tool;
+        $params['number'] = $number;
+        $params['details'] = $details;
+        return $this->factory()->post('/assistant', $params);
     }
 
+
+    /**
+     * Rewriter wrapper for the Tinq.ai API.
+     * @param array<string,mixed> $params
+     * @link https://docs.tinq.ai/v2/reference/assistant
+     */
+
+    public function rewrite(string $text, array $params = [])
+    {
+        $language = $params['lang'] ?? 'english';
+        $tone = $params['tone'] ?? 'neutral';
+        $tool = 'rewriter';
+        $number = 1;
+        $params['text'] = $text;
+        $details = $params['details'] ?? '';
+        return $this->assistant($language, $tone, $tool, $number, $details, $params);
+    }
 }
 
 
+/**
+ * Class Api
+ *
+ * This class provides methods to interact with the Tinq.ai API.
+ * It supports GET and POST requests.
+ */
 class Api
 {
-    /** @var \CurlHandle */
     private $client;
-    /** @var string */
     protected $url;
 
-    /**
-     * @param array<int,string> $headers
-     */
     public function __construct(string $url, array $headers = [])
     {
-        $curlClient = curl_init();
-        curl_setopt_array($curlClient, [
+        $this->client = curl_init();
+        curl_setopt_array($this->client, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_FAILONERROR => true,
+            CURLOPT_FAILONERROR => false,
         ]);
-        $this->client = $curlClient;
         $this->url = $url;
-        return $this;
     }
 
     private function getUrl(string $url)
@@ -147,30 +155,33 @@ class Api
         return $this->url . $url;
     }
 
-    /**
-     * @param array<string,mixed> $params
-     */
+    public function get(string $url, array $params = [])
+    {
+        $fullUrl = $this->getUrl($url) . '?' . http_build_query($params);
+        curl_setopt($this->client, CURLOPT_URL, $fullUrl);
+        curl_setopt($this->client, CURLOPT_HTTPGET, true);
+        return $this->execute();
+    }
+
     public function post(string $url, array $params)
     {
-        $params = array_merge($params);
-        
         curl_setopt($this->client, CURLOPT_URL, $this->getUrl($url));
         curl_setopt($this->client, CURLOPT_POST, true);
         curl_setopt($this->client, CURLOPT_POSTFIELDS, json_encode($params));
-        curl_setopt($this->client, CURLOPT_FAILONERROR, false); 
-        /** @var string $res */
+        return $this->execute();
+    }
+
+    private function execute()
+    {
         $response = curl_exec($this->client);
+        $status = curl_getinfo($this->client, CURLINFO_RESPONSE_CODE);
 
         if (curl_errno($this->client)) {
             $error_msg = curl_error($this->client);
-            $status = curl_getinfo($this->client, CURLINFO_RESPONSE_CODE);
+            throw new \Exception('Tinq.ai Error Status: ' . $status . '. Message: ' . $error_msg);
         }
 
         curl_close($this->client);
-
-        if (isset($error_msg)) {
-            throw new \Exception('Tinq.ai Error Status: ' . $status . '. Message: ' . $error_msg);
-        }
 
         return json_decode($response, true);
     }

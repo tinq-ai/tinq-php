@@ -4,3 +4,6 @@ Thumbs.db
 /.idea
 /.vscode
 .DS_Store
+.env
+tinq-ai-http-requests.har
+/~
