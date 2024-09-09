@@ -7,7 +7,7 @@ $language = "english";
 $tone = "encouraging";
 $tool = "tweet";
 $number = 3;
-$details = "how to be rich";
+$details = "";
 
 // Call the assistant method
 try {
